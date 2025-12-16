@@ -1,0 +1,1342 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>⭐ OTP Generator | hangtuah2titipapan@gmail.com</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<style>
+    :root {
+        --primary: #3b82f6;
+        --primary-hover: #2563eb;
+        --bg-color: #0f172a;
+        --glass-bg: rgba(30, 41, 59, 0.7);
+        --glass-border: rgba(255, 255, 255, 0.1);
+        --text-main: #e2e8f0;
+        --text-muted: #94a3b8;
+        --input-bg: rgba(15, 23, 42, 0.6);
+        --success: #10b981;
+        --danger: #ef4444;
+        --warning: #f59e0b;
+    }
+
+    * { box-sizing: border-box; outline: none; }
+    body, html {
+        margin: 0; padding: 0; width: 100%; height: 100%;
+        font-family: 'Inter', sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-main);
+        overflow-x: hidden;
+    }
+
+    #bgCanvas {
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        z-index: 0;
+    }
+
+    .container {
+        position: relative;
+        z-index: 1;
+        max-width: 900px;
+        margin: 40px auto;
+        background: var(--glass-bg);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid var(--glass-border);
+        border-radius: 16px;
+        padding: 30px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        max-height: 95vh;
+        overflow-y: auto;
+    }
+
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+    h1 {
+        font-family: 'JetBrains Mono', monospace;
+        color: #60a5fa;
+        font-size: 24px;
+        margin: 0;
+        text-align: center;
+        letter-spacing: -1px;
+    }
+    h3 {
+        font-size: 16px;
+        margin: 0;
+        color: #fff;
+        border-left: 4px solid var(--primary);
+        padding-left: 10px;
+    }
+    p, li { font-size: 13px; color: var(--text-muted); line-height: 1.6; margin: 5px 0; }
+    hr { border: 0; height: 1px; background: var(--glass-border); width: 100%; margin: 15px 0; }
+    a { color: var(--primary); text-decoration: none; transition: 0.3s; }
+    a:hover { color: #60a5fa; text-decoration: underline; }
+
+    input[type="text"], input[type="password"], textarea, input[type="file"], select {
+        width: 100%;
+        padding: 10px;
+        background: var(--input-bg);
+        border: 1px solid var(--glass-border);
+        border-radius: 6px;
+        color: #fff;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 13px;
+        transition: 0.3s;
+        margin-bottom: 8px;
+    }
+    input[type="text"]:focus, input[type="password"]:focus, select:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+    }
+
+    button {
+        background: var(--primary);
+        color: white;
+        border: none;
+        padding: 10px 16px;
+        border-radius: 6px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 13px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+    }
+    button:hover { background: var(--primary-hover); transform: translateY(-1px); }
+    button:active { transform: translateY(0); }
+    button.btn-danger { background: var(--danger); }
+    button.btn-danger:hover { background: #dc2626; }
+    button.btn-secondary { background: #475569; }
+    button.btn-secondary:hover { background: #334155; }
+    button.btn-success { background: var(--success); }
+    button.btn-success:hover { background: #059669; }
+
+    .lock-overlay {
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: rgba(0,0,0,0.8);
+        z-index: 999;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(5px);
+    }
+    .lock-overlay.active { display: flex; }
+    .lock-box {
+        background: var(--glass-bg);
+        border: 1px solid var(--glass-border);
+        border-radius: 12px;
+        padding: 40px;
+        text-align: center;
+        max-width: 400px;
+    }
+    .lock-box h2 { color: #60a5fa; margin-bottom: 20px; }
+    .lock-box input { margin-bottom: 15px; }
+    .lock-box button { width: 100%; }
+
+    .radio-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        background: rgba(0,0,0,0.2);
+        padding: 12px;
+        border-radius: 6px;
+        margin-bottom: 10px;
+    }
+    .radio-group label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        color: #e2e8f0;
+        font-size: 12px;
+    }
+    .radio-group input[type="radio"] { accent-color: var(--primary); }
+
+    .drop-zone {
+        border: 2px dashed var(--glass-border);
+        border-radius: 8px;
+        padding: 30px;
+        text-align: center;
+        transition: all 0.3s;
+        background: rgba(255,255,255,0.02);
+        cursor: pointer;
+        margin-bottom: 10px;
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+        border-color: var(--primary);
+        background: rgba(59, 130, 246, 0.1);
+    }
+
+    #output {
+        background: #000;
+        color: #00ff88;
+        padding: 12px;
+        border-radius: 6px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 11px;
+        white-space: pre-wrap;
+        border: 1px solid #333;
+        max-height: 180px;
+        overflow-y: auto;
+        word-break: break-all;
+    }
+
+    .totp-panel {
+        background: rgba(16,185,129,0.1);
+        border: 1px solid rgba(16,185,129,0.3);
+        border-radius: 8px;
+        padding: 15px;
+        text-align: center;
+        display: none;
+        margin-top: 10px;
+    }
+    .totp-panel.active { display: block; }
+    .totp-code {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 36px;
+        font-weight: bold;
+        color: #10b981;
+        letter-spacing: 3px;
+        margin: 10px 0;
+    }
+    .totp-timer {
+        color: var(--text-muted);
+        font-size: 12px;
+    }
+
+    .item-card {
+        background: rgba(255,255,255,0.05);
+        border: 1px solid var(--glass-border);
+        border-radius: 6px;
+        padding: 10px;
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        transition: 0.2s;
+    }
+    .item-card:hover { background: rgba(255,255,255,0.08); }
+    .item-info {
+        flex: 1;
+        min-width: 200px;
+    }
+    .item-info strong { color: #fff; display: block; font-size: 13px; }
+    .item-info span { font-size: 11px; color: var(--text-muted); }
+    .item-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+    .item-actions button { padding: 5px 10px; font-size: 11px; }
+
+    .search-box {
+        width: 100%;
+        padding: 10px;
+        background: var(--input-bg);
+        border: 1px solid var(--glass-border);
+        border-radius: 6px;
+        color: #fff;
+        font-size: 13px;
+        margin-bottom: 10px;
+    }
+
+    .spinner {
+        width: 25px; height: 25px;
+        border: 2px solid rgba(255,255,255,0.1);
+        border-top-color: var(--primary);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 10px auto;
+    }
+    @keyframes spin { to {transform: rotate(360deg);} }
+
+    .alert {
+        padding: 12px;
+        border-radius: 6px;
+        margin-bottom: 10px;
+        font-size: 12px;
+    }
+    .alert-success { background: rgba(16,185,129,0.2); color: #10b981; border-left: 3px solid #10b981; }
+    .alert-error { background: rgba(239,68,68,0.2); color: #ef4444; border-left: 3px solid #ef4444; }
+    .alert-info { background: rgba(59,130,246,0.2); color: #60a5fa; border-left: 3px solid #60a5fa; }
+
+    .tabs {
+        display: flex;
+        gap: 10px;
+        border-bottom: 1px solid var(--glass-border);
+        margin-bottom: 15px;
+        flex-wrap: wrap;
+    }
+    .tab-btn {
+        background: none;
+        border: none;
+        padding: 10px 15px;
+        color: var(--text-muted);
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        font-weight: 600;
+    }
+    .tab-btn.active {
+        color: var(--primary);
+        border-bottom-color: var(--primary);
+    }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    @media (max-width: 600px) {
+        .container { margin: 10px; padding: 15px; width: auto; max-height: 97vh; }
+        .item-card { flex-direction: column; align-items: flex-start; }
+        .item-actions { width: 100%; }
+        h1 { font-size: 20px; }
+        .totp-code { font-size: 28px; }
+    }
+</style>
+</head>
+<body>
+
+<!-- Canvas Background -->
+<canvas id="bgCanvas"></canvas>
+
+<!-- App Lock Overlay -->
+<div class="lock-overlay" id="lockOverlay">
+    <div class="lock-box">
+        <h2>🔐 APLIKASI TERKUNCI</h2>
+        <p style="margin-bottom: 20px;">Masukkan Master Password untuk membuka.</p>
+        <input type="password" id="lockPassword" placeholder="Master Password" autocomplete="off">
+        <button onclick="tryUnlock()">Buka Aplikasi</button>
+        <p style="margin-top: 15px; font-size: 11px; color: #888;">Catatan: Aplikasi akan terkunci otomatis saat tab ditutup.</p>
+    </div>
+</div>
+
+<div class="container">
+    <div>
+        <h1>⭐ OTP BOOKMARKLET PRO</h1>
+        <p style="text-align: center; margin-top: 5px; font-size: 12px;">Secure Generator • QR Decoder • Data Manager</p>
+    </div>
+
+    <!-- Alert Area -->
+    <div id="alertArea"></div>
+
+    <!-- Tab Navigation -->
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('generator')">⚡ Generator</button>
+        <button class="tab-btn" onclick="switchTab('decoder')">📷 Decoder</button>
+        <button class="tab-btn" onclick="switchTab('manage')">📋 Manage</button>
+        <button class="tab-btn" onclick="switchTab('settings')">⚙️ Settings</button>
+    </div>
+
+    <!-- TAB 1: GENERATOR -->
+    <div id="generator" class="tab-content active">
+        <h3>Generator Bookmarklet</h3>
+        <p>Buat bookmarklet dari Secret Key atau hasil decoder di bawah.</p>
+
+        <label style="font-size: 12px; color: #60a5fa; display: block; margin-bottom: 5px;">Secret Key (Base32)</label>
+        <input type="text" id="bookmarkletCode" placeholder="Paste secret key dari QR atau manual">
+        
+        <label style="font-size: 12px; color: #60a5fa; display: block; margin-bottom: 5px;">Nama Bookmarklet</label>
+        <input type="text" id="bookmarkletNama" placeholder="Misal: Dapodik 2025">
+
+        <label style="font-size: 12px; color: #60a5fa; display: block; margin-bottom: 5px;">Target Aplikasi</label>
+        <div class="radio-group">
+            <label><input type="radio" name="bmOption" value="kode2fa" checked> Dapodik</label>
+            <label><input type="radio" name="bmOption" value="totp_code"> SDM</label>
+            <label><input type="radio" name="bmOption" value="infogtk"> InfoGTK</label>
+            <label><input type="radio" name="bmOption" value="otp"> SIASN</label>
+            <label><input type="radio" name="bmOption" value="custom"> Custom</label>
+        </div>
+
+        <input type="text" id="customFieldId" placeholder="ID field custom (jika dipilih Custom)" style="display:none;">
+
+        <label style="font-size: 12px; color: #60a5fa; display: block; margin-bottom: 5px;">Parameter TOTP</label>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+            <div>
+                <label style="font-size: 11px;">Digits</label>
+                <input type="number" id="totpDigits" value="6" min="4" max="10">
+            </div>
+            <div>
+                <label style="font-size: 11px;">Period (detik)</label>
+                <input type="number" id="totpPeriod" value="30" min="10" max="60">
+            </div>
+            <div>
+                <label style="font-size: 11px;">Algorithm</label>
+                <select id="totpAlgo" style="margin-bottom: 0;">
+                    <option value="SHA-1">SHA-1</option>
+                    <option value="SHA-256">SHA-256</option>
+                    <option value="SHA-512">SHA-512</option>
+                </select>
+            </div>
+        </div>
+
+        <button onclick="generateBookmarklet()" style="width: 100%; background: var(--success);">⚡ Generate Bookmarklet</button>
+
+        <!-- TOTP Preview -->
+        <div class="totp-panel" id="totpPanel">
+            <p style="margin: 0 0 8px 0;">Preview OTP:</p>
+            <div class="totp-code" id="totpCode">------</div>
+            <div class="totp-timer">Berlaku: <span id="totpRemain">--</span>s</div>
+            <button onclick="copyOTP()" style="width: 100%; margin-top: 8px; background: var(--success);">📋 Copy OTP</button>
+        </div>
+
+        <div id="resultArea" style="margin-top: 15px; text-align: center; display: none; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px;">
+            <p style="margin-bottom: 10px; font-size: 11px;">👇 Seret tombol ke Bookmark Bar 👇</p>
+            <a id="bookmarkletLink" href="#" class="bookmarklet-pill" style="display: inline-block; background: #10b981; color: #000; font-weight: bold; padding: 10px 20px; border-radius: 50px; cursor: move; user-select: none;">Nama Bookmarklet</a>
+        </div>
+    </div>
+
+    <!-- TAB 2: DECODER -->
+    <div id="decoder" class="tab-content">
+        <h3>QR Code Decoder</h3>
+        <p>Upload screenshot QR Code dari Google Authenticator atau sistem lain.</p>
+
+        <div class="drop-zone" id="dropZone">
+            <span style="font-size: 32px; display: block; margin-bottom: 8px;">📷</span>
+            <span>Seret gambar QR atau Klik untuk memilih</span>
+            <input type="file" id="fileInput" accept="image/*" style="display: none;">
+        </div>
+
+        <div id="progressIndicator" style="display: none; text-align: center;">
+            <div class="spinner"></div>
+            <p>Menganalisis gambar...</p>
+        </div>
+
+        <pre id="output" style="display: none;">Hasil scan akan muncul di sini...</pre>
+
+        <h3 style="margin-top: 20px;">Riwayat Scan</h3>
+        <input type="text" id="historySearch" class="search-box" placeholder="Cari di riwayat...">
+        <div id="qrHistory" style="max-height: 200px; overflow-y: auto;"></div>
+        <button class="btn-danger" onclick="clearHistory()" style="width: 100%; margin-top: 10px;">🗑️ Hapus Semua Riwayat</button>
+    </div>
+
+    <!-- TAB 3: MANAGE -->
+    <div id="manage" class="tab-content">
+        <h3>Manajemen Data</h3>
+        <p>Kelola, edit, cari, dan ekspor bookmarklet tersimpan.</p>
+
+        <input type="text" id="bookmarkSearch" class="search-box" placeholder="Cari bookmarklet...">
+        
+        <div id="savedBookmarklets" style="max-height: 300px; overflow-y: auto; margin-bottom: 15px;"></div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+            <button class="btn-secondary" onclick="backupData()">💾 Backup</button>
+            <button class="btn-secondary" onclick="document.getElementById('restoreFileInput').click()">📂 Restore</button>
+            <button class="btn-secondary" onclick="document.getElementById('browserBookmarksInput').click()">📥 Import</button>
+        </div>
+        <input type="file" id="restoreFileInput" accept=".json" style="display:none;">
+        <input type="file" id="browserBookmarksInput" accept=".html" style="display:none;">
+
+        <button onclick="exportToBookmarksHTML()" style="width: 100%; background: var(--success);">📤 Export ke bookmarks.html</button>
+        <div id="importResult" style="margin-top: 10px;"></div>
+    </div>
+
+    <!-- TAB 4: SETTINGS -->
+    <div id="settings" class="tab-content">
+        <h3>Pengaturan & Keamanan</h3>
+        
+        <p style="margin-bottom: 10px;">🔐 <strong>Master Password</strong></p>
+        <p style="font-size: 11px; color: #888; margin-bottom: 10px;">Master password digunakan untuk enkripsi data. Jika lupa, data tidak bisa dipulihkan.</p>
+        
+        <input type="password" id="newPassword" placeholder="Master Password baru" autocomplete="off">
+        <input type="password" id="confirmPassword" placeholder="Konfirmasi password" autocomplete="off">
+        <button onclick="setMasterPassword()" style="width: 100%; margin-bottom: 10px;">🔐 Set Master Password</button>
+
+        <button class="btn-danger" onclick="lockApp()" style="width: 100%; margin-bottom: 20px;">🔒 Lock Aplikasi Sekarang</button>
+
+        <hr>
+        <p style="margin-bottom: 10px;"><strong>Preferensi</strong></p>
+        
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 10px;">
+            <input type="checkbox" id="autoLockToggle" checked>
+            <span>Auto-lock saat tab ditutup</span>
+        </label>
+
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 10px;">
+            <input type="checkbox" id="previewToggle" checked>
+            <span>Preview OTP otomatis saat input secret</span>
+        </label>
+
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="checkbox" id="copyNotifToggle" checked>
+            <span>Notifikasi saat copy OTP</span>
+        </label>
+
+        <hr>
+        <p><strong>Danger Zone</strong></p>
+        <button class="btn-danger" onclick="clearAllData()" style="width: 100%;">⚠️ Hapus Semua Data</button>
+        <p style="font-size: 11px; color: #888; margin-top: 8px;">Aksi ini tidak bisa dibatalkan. Semua data akan dihapus permanen.</p>
+    </div>
+
+    <div style="text-align: center; margin-top: 20px; font-size: 11px; color: #555;">
+        <p>🔒 Semua data dienkripsi lokal. Tidak ada yang dikirim ke server.</p>
+    </div>
+</div>
+
+<!-- Libraries -->
+<script src="https://cdn.jsdelivr.net/npm/protobufjs/dist/protobuf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
+
+<script>
+/**
+ * ===============================
+ * CANVAS ANIMATION (Background)
+ * ===============================
+ */
+const canvas = document.getElementById('bgCanvas');
+const ctx = canvas.getContext('2d');
+let particles = [];
+const particleCount = 50;
+const connectionDistance = 150;
+
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+
+class Particle {
+    constructor() {
+        this.x = Math.random() * canvas.width;
+        this.y = Math.random() * canvas.height;
+        this.vx = (Math.random() - 0.5) * 0.3;
+        this.vy = (Math.random() - 0.5) * 0.3;
+        this.size = Math.random() * 1.5 + 0.5;
+    }
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
+        if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+        this.x = Math.max(0, Math.min(canvas.width, this.x));
+        this.y = Math.max(0, Math.min(canvas.height, this.y));
+    }
+    draw() {
+        ctx.fillStyle = 'rgba(59, 130, 246, 0.6)';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+function initParticles() {
+    particles = [];
+    for (let i = 0; i < particleCount; i++) {
+        particles.push(new Particle());
+    }
+}
+
+function animate() {
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.03)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    particles.forEach(p => {
+        p.update();
+        p.draw();
+    });
+
+    for (let i = 0; i < particles.length; i++) {
+        for (let j = i; j < particles.length; j++) {
+            const dx = particles[i].x - particles[j].x;
+            const dy = particles[i].y - particles[j].y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance < connectionDistance) {
+                ctx.beginPath();
+                ctx.strokeStyle = `rgba(59, 130, 246, ${0.3 * (1 - distance/connectionDistance)})`;
+                ctx.lineWidth = 0.3;
+                ctx.moveTo(particles[i].x, particles[i].y);
+                ctx.lineTo(particles[j].x, particles[j].y);
+                ctx.stroke();
+            }
+        }
+    }
+    requestAnimationFrame(animate);
+}
+
+window.addEventListener('resize', () => { resizeCanvas(); initParticles(); });
+resizeCanvas();
+initParticles();
+animate();
+
+/**
+ * ===============================
+ * APP LOCK & ENCRYPTION
+ * ===============================
+ */
+let masterKey = null;
+let appLocked = true;
+let passwordHash = null;
+
+function b64(bytes){ return btoa(String.fromCharCode(...new Uint8Array(bytes))); }
+function ub64(s){ return Uint8Array.from(atob(s), c => c.charCodeAt(0)); }
+
+async function hashPassword(password) {
+    const enc = new TextEncoder();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', enc.encode(password));
+    return b64(hashBuffer);
+}
+
+async function deriveKeyFromPassword(password, saltBytes) {
+    const enc = new TextEncoder();
+    const baseKey = await crypto.subtle.importKey(
+        "raw", enc.encode(password), "PBKDF2", false, ["deriveKey"]
+    );
+    return crypto.subtle.deriveKey(
+        { name: "PBKDF2", salt: saltBytes, iterations: 150000, hash: "SHA-256" },
+        baseKey,
+        { name: "AES-GCM", length: 256 },
+        false,
+        ["encrypt","decrypt"]
+    );
+}
+
+async function initLock() {
+    const stored = localStorage.getItem("otp_hash");
+    if (stored) {
+        passwordHash = stored;
+        appLocked = true;
+        document.getElementById("lockOverlay").classList.add("active");
+    } else {
+        appLocked = false;
+        document.getElementById("lockOverlay").classList.remove("active");
+        console.log("Belum ada master password. Silakan atur di Settings.");
+    }
+}
+
+async function tryUnlock() {
+    const pwd = document.getElementById("lockPassword").value.trim();
+    if (!pwd) return showAlert("Masukkan password", "error");
+
+    const hash = await hashPassword(pwd);
+    if (hash === passwordHash) {
+        const salt = ub64(localStorage.getItem("otp_salt") || "");
+        masterKey = await deriveKeyFromPassword(pwd, salt);
+        appLocked = false;
+        document.getElementById("lockOverlay").classList.remove("active");
+        document.getElementById("lockPassword").value = "";
+        showAlert("✅ Aplikasi dibuka", "success");
+        displaySavedBookmarklets();
+    } else {
+        showAlert("❌ Password salah", "error");
+    }
+}
+
+async function setMasterPassword() {
+    const pwd1 = document.getElementById("newPassword").value.trim();
+    const pwd2 = document.getElementById("confirmPassword").value.trim();
+
+    if (!pwd1 || !pwd2) return showAlert("Isi kedua password", "error");
+    if (pwd1 !== pwd2) return showAlert("Password tidak cocok", "error");
+    if (pwd1.length < 6) return showAlert("Password minimal 6 karakter", "error");
+
+    try {
+        const salt = crypto.getRandomValues(new Uint8Array(16));
+        masterKey = await deriveKeyFromPassword(pwd1, salt);
+        passwordHash = await hashPassword(pwd1);
+
+        localStorage.setItem("otp_salt", b64(salt));
+        localStorage.setItem("otp_hash", passwordHash);
+
+        document.getElementById("newPassword").value = "";
+        document.getElementById("confirmPassword").value = "";
+
+        showAlert("✅ Master password berhasil diset", "success");
+    } catch(e) {
+        showAlert("❌ Error: " + e.message, "error");
+    }
+}
+
+function lockApp() {
+    if (!masterKey) return showAlert("Belum ada master password", "error");
+    masterKey = null;
+    appLocked = true;
+    document.getElementById("lockOverlay").classList.add("active");
+    showAlert("🔒 Aplikasi terkunci", "info");
+}
+
+window.addEventListener('beforeunload', () => {
+    if (document.getElementById("autoLockToggle").checked) {
+        masterKey = null;
+    }
+});
+
+/**
+ * ===============================
+ * DATA ENCRYPTION & STORAGE
+ * ===============================
+ */
+async function encryptData(obj) {
+    if (!masterKey) throw new Error("Aplikasi terkunci. Buka dengan password.");
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const plaintext = new TextEncoder().encode(JSON.stringify(obj));
+    const ciphertext = new Uint8Array(await crypto.subtle.encrypt(
+        { name: "AES-GCM", iv }, masterKey, plaintext
+    ));
+    return JSON.stringify({ iv: b64(iv), ct: b64(ciphertext) });
+}
+
+async function decryptData(encrypted) {
+    if (!masterKey) return null;
+    try {
+        const { iv, ct } = JSON.parse(encrypted);
+        const plaintext = await crypto.subtle.decrypt(
+            { name: "AES-GCM", iv: ub64(iv) }, masterKey, ub64(ct)
+        );
+        return JSON.parse(new TextDecoder().decode(new Uint8Array(plaintext)));
+    } catch(e) {
+        return null;
+    }
+}
+
+async function getSavedData() {
+    if (appLocked) return [];
+    const encrypted = localStorage.getItem("otpBookmarklets_enc");
+    if (!encrypted) return [];
+    return (await decryptData(encrypted)) || [];
+}
+
+async function saveData(data) {
+    if (appLocked) throw new Error("Aplikasi terkunci");
+    const encrypted = await encryptData(data);
+    localStorage.setItem("otpBookmarklets_enc", encrypted);
+}
+
+/**
+ * ===============================
+ * UI & UTILITY FUNCTIONS
+ * ===============================
+ */
+function showAlert(msg, type = "info") {
+    const alertArea = document.getElementById("alertArea");
+    const div = document.createElement("div");
+    div.className = `alert alert-${type}`;
+    div.textContent = msg;
+    alertArea.appendChild(div);
+    setTimeout(() => div.remove(), 4000);
+}
+
+function switchTab(tab) {
+    document.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
+    document.querySelectorAll(".tab-btn").forEach(el => el.classList.remove("active"));
+    document.getElementById(tab).classList.add("active");
+    event.target.classList.add("active");
+}
+
+const radioButtons = document.querySelectorAll('input[name="bmOption"]');
+if (radioButtons.length > 0) {
+    radioButtons.forEach(radio => {
+        radio.addEventListener("change", (e) => {
+            const customField = document.getElementById("customFieldId");
+            if (customField) {
+                customField.style.display = e.target.value === "custom" ? "block" : "none";
+            }
+        });
+    });
+}
+
+/**
+ * ===============================
+ * TOTP GENERATION & PREVIEW
+ * ===============================
+ */
+let lastOTP = "";
+
+function secondsRemaining(period = 30) {
+    const now = Math.floor(Date.now() / 1000);
+    return period - (now % period);
+}
+
+async function generateTOTP(secret, digits = 6, period = 30, algorithm = "SHA-1") {
+    try {
+        function base32Decode(e) {
+            for(var t=e.toUpperCase().replace(/=+$/,"").replace(/\s+/g,""),r=0,n=0,a=[],o=0;o<t.length;o++){var c="ABCDEFGHIJKLMNOPQRSTUVWXYZ234567".indexOf(t[o]);if(-1===c)throw new Error("Invalid Base32: "+t[o]);n=n<<5|c,(r+=5)>=8&&(a.push(n>>>r-8&255),r-=8)}return new Uint8Array(a)}
+            
+            const key = base32Decode(secret);
+            const counter = Math.floor(Date.now() / 1000 / period);
+            const buffer = new ArrayBuffer(8);
+            const view = new DataView(buffer);
+            view.setUint32(0, Math.floor(counter / Math.pow(2, 32)));
+            view.setUint32(4, counter >>> 0);
+
+            const algo = { name: "HMAC", hash: { name: algorithm } };
+            const cryptoKey = await crypto.subtle.importKey("raw", key, algo, false, ["sign"]);
+            const signature = await crypto.subtle.sign("HMAC", cryptoKey, new Uint8Array(buffer));
+            
+            const bytes = new Uint8Array(signature);
+            const offset = bytes[bytes.length - 1] & 0xf;
+            const code = ((bytes[offset] & 0x7f) << 24) | ((bytes[offset + 1] & 0xff) << 16) | ((bytes[offset + 2] & 0xff) << 8) | (bytes[offset + 3] & 0xff);
+            const totp = (code % Math.pow(10, digits)).toString().padStart(digits, "0");
+            
+            return totp;
+        } catch(e) {
+            console.error("TOTP Error:", e);
+            return "------";
+        }
+    }
+
+async function refreshPreviewOTP() {
+    const secret = document.getElementById("bookmarkletCode").value.trim();
+    if (!secret) {
+        document.getElementById("totpPanel").classList.remove("active");
+        return;
+    }
+
+    if (!document.getElementById("previewToggle").checked) return;
+
+    try {
+        const digits = parseInt(document.getElementById("totpDigits").value) || 6;
+        const period = parseInt(document.getElementById("totpPeriod").value) || 30;
+        const algo = document.getElementById("totpAlgo").value || "SHA-1";
+
+        const otp = await generateTOTP(secret, digits, period, algo);
+        lastOTP = otp;
+
+        document.getElementById("totpPanel").classList.add("active");
+        document.getElementById("totpCode").textContent = otp;
+        document.getElementById("totpRemain").textContent = secondsRemaining(period);
+    } catch(e) {
+        console.error(e);
+    }
+}
+
+function copyOTP() {
+    if (!lastOTP) return;
+    navigator.clipboard.writeText(lastOTP);
+    if (document.getElementById("copyNotifToggle").checked) {
+        showAlert("📋 OTP disalin ke clipboard", "success");
+    }
+}
+
+const bookmarkletCodeInput = document.getElementById("bookmarkletCode");
+if (bookmarkletCodeInput) {
+    bookmarkletCodeInput.addEventListener("input", refreshPreviewOTP);
+}
+
+const previewToggle = document.getElementById("previewToggle");
+if (previewToggle) {
+    previewToggle.addEventListener("change", refreshPreviewOTP);
+}
+
+// Event listeners untuk search inputs
+const historySearch = document.getElementById('historySearch');
+if (historySearch) {
+    historySearch.addEventListener('input', displayQRHistory);
+}
+
+const bookmarkSearch = document.getElementById('bookmarkSearch');
+if (bookmarkSearch) {
+    bookmarkSearch.addEventListener('input', displaySavedBookmarklets);
+}
+
+setInterval(refreshPreviewOTP, 1000);
+
+/**
+ * ===============================
+ * BOOKMARKLET GENERATOR
+ * ===============================
+ */
+async function generateBookmarklet() {
+    const codeInput = document.getElementById("bookmarkletCode");
+    const namaInput = document.getElementById("bookmarkletNama");
+    const selectedRadio = document.querySelector('input[name="bmOption"]:checked');
+
+    if (!codeInput.value.trim() || !namaInput.value.trim()) {
+        return showAlert("Isi Secret Key dan Nama Bookmarklet", "error");
+    }
+
+    const code = codeInput.value.trim();
+    const namacode = namaInput.value.trim();
+    let selected2fa = selectedRadio.value;
+    
+    if (selected2fa === "custom") {
+        const customId = document.getElementById("customFieldId").value.trim();
+        if (!customId) return showAlert("Masukkan ID field custom", "error");
+        selected2fa = customId;
+    }
+
+    try {
+        let savedData = await getSavedData();
+        if (!savedData.some(item => item.secret === code && item.penggunaan === selected2fa)) {
+            savedData.push({
+                nama: namacode,
+                secret: code,
+                penggunaan: selected2fa,
+                digits: parseInt(document.getElementById("totpDigits").value) || 6,
+                period: parseInt(document.getElementById("totpPeriod").value) || 30,
+                algorithm: document.getElementById("totpAlgo").value || "SHA-1"
+            });
+            await saveData(savedData);
+            await displaySavedBookmarklets();
+            showAlert("✅ Bookmarklet disimpan", "success");
+        }
+
+        const jsCode = `var secretKey="${code}";var digits=${parseInt(document.getElementById("totpDigits").value) || 6};var period=${parseInt(document.getElementById("totpPeriod").value) || 30};var algo="${document.getElementById("totpAlgo").value || "SHA-1"}";function base32Decode(e){for(var t=e.toUpperCase().replace(/=+$/,"").replace(/\\s+/g,""),r=0,n=0,a=[],o=0;o<t.length;o++){var c="ABCDEFGHIJKLMNOPQRSTUVWXYZ234567".indexOf(t[o]);if(-1===c)throw new Error("Invalid Base32");n=n<<5|c,(r+=5)>=8&&(a.push(n>>>r-8&255),r-=8)}return new Uint8Array(a)}function intToBuffer(e){var t=new ArrayBuffer(8),r=new DataView(t);r.setUint32(0,Math.floor(e/Math.pow(2,32)));r.setUint32(4,e>>>0);return new Uint8Array(t)}function generateTOTP(e,t,r,n){var a=base32Decode(e),o=Math.floor(Date.now()/1e3),c=intToBuffer(Math.floor(o/r));return crypto.subtle.importKey("raw",a,{name:"HMAC",hash:{name:n}},!1,["sign"]).then(function(e){return crypto.subtle.sign("HMAC",e,c)}).then(function(e){var r=new Uint8Array(e),n=15&r[r.length-1];return(((127&r[n])<<24|(255&r[n+1])<<16|(255&r[n+2])<<8|255&r[n+3])%Math.pow(10,t)).toString().padStart(t,"0")})}generateTOTP(secretKey,digits,period,algo).then(function(e){var t="${selected2fa}";document.getElementById(t)?document.getElementById(t).value=e:"infogtk"==t&&document.querySelectorAll("#otpForm .otp-input").forEach((r,n)=>{r.value=e[n]||""})}).catch(function(e){alert("Error: "+e.message)})`;
+
+        const bookmarklet = "javascript:(function(){" + encodeURIComponent(jsCode) + "})();";
+        
+        const link = document.getElementById("bookmarkletLink");
+        const resultArea = document.getElementById("resultArea");
+        
+        link.href = bookmarklet;
+        link.textContent = namacode;
+        resultArea.style.display = "block";
+        
+        // Update title bar dengan nama bookmarklet & email
+        document.title = `⭐ ${namacode} | hangtuah2titipapan@gmail.com`;
+        
+        resultArea.scrollIntoView({ behavior: "smooth" });
+    } catch(e) {
+        showAlert("❌ Error: " + e.message, "error");
+    }
+}
+
+/**
+ * ===============================
+ * SAVED BOOKMARKLETS DISPLAY
+ * ===============================
+ */
+async function displaySavedBookmarklets() {
+    try {
+        let data = await getSavedData();
+        const container = document.getElementById('savedBookmarklets');
+        const searchVal = (document.getElementById('bookmarkSearch').value || "").toLowerCase();
+        
+        if (searchVal) {
+            data = data.filter(item => 
+                item.nama.toLowerCase().includes(searchVal) ||
+                item.penggunaan.toLowerCase().includes(searchVal)
+            );
+        }
+
+        container.innerHTML = '';
+        
+        if (data.length === 0) {
+            container.innerHTML = '<p style="text-align:center; font-style:italic;">Belum ada bookmarklet tersimpan.</p>';
+            return;
+        }
+
+        data.forEach((item, index) => {
+            const div = document.createElement('div');
+            div.className = 'item-card';
+            div.innerHTML = `
+                <div class="item-info">
+                    <strong>${item.nama}</strong>
+                    <span>${item.penggunaan} • ${item.digits}digit • ${item.period}s • ${item.algorithm}</span>
+                </div>
+                <div class="item-actions">
+                    <button class="btn-primary" onclick="loadSaved(${index})">Load</button>
+                    <button class="btn-secondary" onclick="editSaved(${index})">Edit</button>
+                    <button class="btn-danger" onclick="deleteSaved(${index})">Del</button>
+                </div>
+            `;
+            container.appendChild(div);
+        });
+    } catch(e) {
+        showAlert("Error load: " + e.message, "error");
+    }
+}
+
+async function loadSaved(index) {
+    const data = await getSavedData();
+    const item = data[index];
+    document.getElementById("bookmarkletCode").value = item.secret;
+    document.getElementById("bookmarkletNama").value = item.nama;
+    document.querySelector(`input[name="bmOption"][value="${item.penggunaan}"]`).checked = true;
+    document.getElementById("totpDigits").value = item.digits || 6;
+    document.getElementById("totpPeriod").value = item.period || 30;
+    document.getElementById("totpAlgo").value = item.algorithm || "SHA-1";
+    document.getElementById("customFieldId").style.display = item.penggunaan === "custom" ? "block" : "none";
+    if (item.penggunaan === "custom") document.getElementById("customFieldId").value = item.penggunaan;
+    refreshPreviewOTP();
+    switchTab("generator");
+    showAlert("✅ Bookmarklet dimuat", "success");
+}
+
+async function editSaved(index) {
+    await loadSaved(index);
+}
+
+async function deleteSaved(index) {
+    if (!confirm("Hapus bookmarklet ini?")) return;
+    let data = await getSavedData();
+    data.splice(index, 1);
+    await saveData(data);
+    await displaySavedBookmarklets();
+    showAlert("🗑️ Bookmarklet dihapus", "success");
+}
+
+/**
+ * ===============================
+ * QR DECODER
+ * ===============================
+ */
+function initDragAndDrop() {
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', handleFile);
+
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('drag-over');
+    });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('drag-over');
+        if(e.dataTransfer.files.length) handleFile({target: {files: e.dataTransfer.files}});
+    });
+}
+
+function handleFile(e) {
+    const file = e.target.files[0];
+    if(!file) return;
+    
+    document.getElementById('progressIndicator').style.display = 'block';
+    document.getElementById('output').style.display = 'none';
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+        const img = new Image();
+        img.onload = () => {
+            const cvs = document.createElement('canvas');
+            cvs.width = img.width; cvs.height = img.height;
+            const ctx2 = cvs.getContext('2d');
+            ctx2.drawImage(img, 0, 0);
+            const imageData = ctx2.getImageData(0, 0, cvs.width, cvs.height);
+            const code = jsQR(imageData.data, imageData.width, imageData.height);
+            
+            document.getElementById('progressIndicator').style.display = 'none';
+            
+            if(code) {
+                processQR(code.data);
+            } else {
+                showOutput("❌ QR Code tidak terdeteksi. Coba gambar yang lebih jelas.");
+            }
+        };
+        img.src = evt.target.result;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+}
+
+function showOutput(text) {
+    const output = document.getElementById('output');
+    output.textContent = text;
+    output.style.display = 'block';
+}
+
+function processQR(text) {
+    try {
+        if(text.startsWith("otpauth://")) {
+            const url = new URL(text);
+            const secret = url.searchParams.get("secret");
+            const label = decodeURIComponent(url.pathname.replace(/^\/\//, ''));
+            
+            if(secret) {
+                const res = { name: label, secret: secret, issuer: url.searchParams.get("issuer") || "App" };
+                showOutput(`✅ BERHASIL\n\nNama: ${res.name}\nIssuer: ${res.issuer}\nSecret: ${res.secret}`);
+                document.getElementById("bookmarkletCode").value = res.secret;
+                document.getElementById("bookmarkletNama").value = res.name;
+                addToHistory(res);
+            } else {
+                throw new Error("No secret");
+            }
+        } else {
+            const url = new URL(text);
+            let data = url.searchParams.get("data");
+            if(!data) throw new Error("Not Migration Data");
+            
+            data = data.replace(/ /g, '+');
+            const binary = atob(data);
+            const bytes = new Uint8Array(binary.length);
+            for(let i=0; i<binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            
+            const root = protobuf.Root.fromJSON({ nested: { MigrationPayload: { fields: { otpParameters: { rule: "repeated", type: "OtpParameters", id: 1 } } }, OtpParameters: { fields: { secret: { type: "bytes", id: 1 }, name: { type: "string", id: 2 }, issuer: { type: "string", id: 3 } } } } });
+            const payload = root.lookupType("MigrationPayload").decode(bytes);
+            
+            let txt = "";
+            payload.otpParameters.forEach(p => {
+                const base32 = base32Encode(p.secret);
+                const item = { name: p.name, secret: base32, issuer: p.issuer };
+                txt += `✅ ${item.name} (${item.issuer})\nSecret: ${item.secret}\n\n`;
+                addToHistory(item);
+            });
+            showOutput(txt);
+        }
+    } catch(e) {
+        showOutput("❌ Error: " + e.message);
+    }
+}
+
+function base32Encode(bytes) {
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+    let bits = 0, value = 0, output = '';
+    for (let i = 0; i < bytes.length; i++) {
+        value = (value << 8) | bytes[i];
+        bits += 8;
+        while (bits >= 5) {
+            output += alphabet[(value >>> (bits - 5)) & 31];
+            bits -= 5;
+        }
+    }
+    if (bits > 0) {
+        output += alphabet[(value << (5 - bits)) & 31];
+    }
+    return output;
+}
+
+/**
+ * ===============================
+ * QR HISTORY
+ * ===============================
+ */
+function getQRHistory() {
+    return JSON.parse(localStorage.getItem('qrHistory') || '[]');
+}
+
+function addToHistory(item) {
+    let hist = getQRHistory();
+    if(!hist.some(h => h.secret === item.secret)) {
+        hist.unshift({ ...item, timestamp: new Date().toISOString() });
+        if(hist.length > 20) hist.pop();
+        localStorage.setItem('qrHistory', JSON.stringify(hist));
+        displayQRHistory();
+    }
+}
+
+function displayQRHistory() {
+    const hist = getQRHistory();
+    const searchVal = (document.getElementById('historySearch').value || "").toLowerCase();
+    const filtered = hist.filter(h => 
+        h.name.toLowerCase().includes(searchVal) ||
+        h.issuer.toLowerCase().includes(searchVal)
+    );
+
+    const div = document.getElementById('qrHistory');
+    div.innerHTML = '';
+    
+    if(filtered.length === 0) {
+        div.innerHTML = '<p style="text-align:center; font-style:italic;">Belum ada riwayat QR.</p>';
+        return;
+    }
+    
+    filtered.forEach(h => {
+        const el = document.createElement('div');
+        el.className = 'item-card';
+        const date = new Date(h.timestamp).toLocaleString('id-ID');
+        el.innerHTML = `
+            <div class="item-info">
+                <strong>${h.name}</strong>
+                <span>${h.issuer} • ${date}</span>
+            </div>
+            <button class="btn-primary" onclick="useHistory('${h.secret}', '${h.name}')">Pakai</button>
+        `;
+        div.appendChild(el);
+    });
+}
+
+function useHistory(sec, name) {
+    document.getElementById("bookmarkletCode").value = sec;
+    document.getElementById("bookmarkletNama").value = name;
+    switchTab("generator");
+}
+
+function clearHistory() {
+    if(!confirm("Hapus semua riwayat QR?")) return;
+    localStorage.removeItem('qrHistory');
+    displayQRHistory();
+    showAlert("🗑️ Riwayat dihapus", "success");
+}
+
+/**
+ * ===============================
+ * BACKUP & RESTORE
+ * ===============================
+ */
+async function backupData() {
+    try {
+        const data = await getSavedData();
+        if(data.length === 0) return showAlert("Tidak ada data untuk dibackup", "error");
+        
+        const blob = new Blob([JSON.stringify(data, null, 2)], {type: "application/json"});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `otp_backup_${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+        showAlert("💾 Backup berhasil diunduh", "success");
+    } catch(e) {
+        showAlert("Error: " + e.message, "error");
+    }
+}
+
+const restoreFileInput = document.getElementById('restoreFileInput');
+if (restoreFileInput) {
+    restoreFileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+            try {
+                const json = JSON.parse(evt.target.result);
+                if(Array.isArray(json)) {
+                    await saveData(json);
+                    await displaySavedBookmarklets();
+                    showAlert("✅ Restore berhasil", "success");
+                } else throw new Error("Format salah");
+            } catch(err) {
+                showAlert("❌ Error restore: " + err.message, "error");
+            }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+    });
+}
+
+const browserBookmarksInput = document.getElementById('browserBookmarksInput');
+if (browserBookmarksInput) {
+    browserBookmarksInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    document.getElementById('importResult').textContent = "Sedang memproses...";
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+        try {
+            const found = parseBookmarksHTML(evt.target.result);
+            if (found.length === 0) {
+                document.getElementById('importResult').innerHTML = "⚠️ Tidak ada bookmarklet OTP ditemukan";
+                return;
+            }
+
+            let currentData = await getSavedData();
+            let count = 0;
+            found.forEach(item => {
+                if (!currentData.some(saved => saved.secret === item.secret && saved.penggunaan === item.penggunaan)) {
+                    currentData.push(item);
+                    count++;
+                }
+            });
+
+            await saveData(currentData);
+            await displaySavedBookmarklets();
+            document.getElementById('importResult').innerHTML = `✅ ${count} bookmarklet baru diimpor`;
+            showAlert("✅ Import berhasil", "success");
+        } catch (err) {
+            document.getElementById('importResult').innerHTML = "❌ Error: " + err.message;
+        }
+    };
+        reader.readAsText(file);
+        e.target.value = '';
+    });
+}
+
+function parseBookmarksHTML(html) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const links = doc.querySelectorAll('a[href^="javascript:"]');
+    const results = [];
+
+    links.forEach(link => {
+        try {
+            const href = link.getAttribute('href');
+            const name = link.textContent.trim();
+            const decoded = decodeURIComponent(href.substring(11));
+            
+            const secretMatch = decoded.match(/var secretKey="([^"]+)";/);
+            if (!secretMatch) return;
+            
+            let platform = 'unknown';
+            if (decoded.includes('kode2fa')) platform = 'kode2fa';
+            else if (decoded.includes('totp_code')) platform = 'totp_code';
+            else if (decoded.includes('infogtk')) platform = 'infogtk';
+            else if (decoded.includes('otp')) platform = 'otp';
+
+            results.push({
+                nama: name,
+                secret: secretMatch[1],
+                penggunaan: platform,
+                digits: 6,
+                period: 30,
+                algorithm: "SHA-1"
+            });
+        } catch (e) {}
+    });
+    return results;
+}
+
+async function exportToBookmarksHTML() {
+    try {
+        const data = await getSavedData();
+        if(data.length === 0) return showAlert("Tidak ada data untuk diekspor", "error");
+
+        let links = "";
+        for (const item of data) {
+            const jsCode = `var secretKey="${item.secret}";var digits=${item.digits || 6};var period=${item.period || 30};var algo="${item.algorithm || "SHA-1"}";function base32Decode(e){for(var t=e.toUpperCase().replace(/=+$/,"").replace(/\\s+/g,""),r=0,n=0,a=[],o=0;o<t.length;o++){var c="ABCDEFGHIJKLMNOPQRSTUVWXYZ234567".indexOf(t[o]);if(-1===c)throw new Error("Invalid Base32");n=n<<5|c,(r+=5)>=8&&(a.push(n>>>r-8&255),r-=8)}return new Uint8Array(a)}function intToBuffer(e){var t=new ArrayBuffer(8),r=new DataView(t);r.setUint32(0,Math.floor(e/Math.pow(2,32)));r.setUint32(4,e>>>0);return new Uint8Array(t)}function generateTOTP(e,t,r,n){var a=base32Decode(e),o=Math.floor(Date.now()/1e3),c=intToBuffer(Math.floor(o/r));return crypto.subtle.importKey("raw",a,{name:"HMAC",hash:{name:n}},!1,["sign"]).then(function(e){return crypto.subtle.sign("HMAC",e,c)}).then(function(e){var r=new Uint8Array(e),n=15&r[r.length-1];return(((127&r[n])<<24|(255&r[n+1])<<16|(255&r[n+2])<<8|255&r[n+3])%Math.pow(10,t)).toString().padStart(t,"0")})}generateTOTP(secretKey,digits,period,algo).then(function(e){var t="${item.penggunaan}";document.getElementById(t)?document.getElementById(t).value=e:"infogtk"==t&&document.querySelectorAll("#otpForm .otp-input").forEach((r,n)=>{r.value=e[n]||""})}).catch(function(e){alert("Error: "+e.message)})`;
+            const href = "javascript:(function(){" + encodeURIComponent(jsCode) + "})();";
+            links += `<DT><A HREF="${href}">${item.nama}</A>\n`;
+        }
+
+        const html = `<!DOCTYPE NETSCAPE-Bookmark-file-1>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">
+<TITLE>OTP Bookmarklet</TITLE>
+<H1>OTP Bookmarklet</H1>
+<DL><p>
+${links}
+</DL><p>`;
+
+        const blob = new Blob([html], {type: "text/html"});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `otp_bookmarks_${new Date().toISOString().slice(0,10)}.html`;
+        a.click();
+        showAlert("📤 Export ke bookmarks.html berhasil", "success");
+    } catch(e) {
+        showAlert("Error: " + e.message, "error");
+    }
+}
+
+/**
+ * ===============================
+ * CLEANUP & INIT
+ * ===============================
+ */
+async function clearAllData() {
+    if (!confirm("⚠️ Ini akan menghapus SEMUA data permanen. Lanjutkan?")) return;
+    if (!confirm("Yakin? Aksi ini tidak bisa dibatalkan.")) return;
+
+    localStorage.removeItem("otpBookmarklets_enc");
+    localStorage.removeItem("qrHistory");
+    localStorage.removeItem("otp_salt");
+    localStorage.removeItem("otp_hash");
+    
+    masterKey = null;
+    passwordHash = null;
+    appLocked = true;
+
+    showAlert("⚠️ Semua data dihapus. Refresh halaman...", "info");
+    setTimeout(() => location.reload(), 2000);
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', async () => {
+    initDragAndDrop();
+    initParticles();
+    await initLock();
+    await displaySavedBookmarklets();
+    displayQRHistory();
+    setInterval(refreshPreviewOTP, 1000);
+});
+</script>
+</body>
+</html>
