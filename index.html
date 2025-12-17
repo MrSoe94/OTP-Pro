@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
 <meta charset="utf-8">
-<title>⭐ OTP Generator | hangtuah2titipapan@gmail.com</title>
+<title>⭐ OTP Generator</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -238,6 +238,22 @@
     .item-info span { font-size: 11px; color: var(--text-muted); }
     .item-actions { display: flex; gap: 4px; flex-wrap: wrap; }
     .item-actions button { padding: 5px 10px; font-size: 11px; }
+
+    .backup-controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+        padding: 5px 10px;
+        font-size: 12px;
+        background: rgba(0,0,0,0.2);
+        border-radius: 6px;
+        color: var(--text-muted);
+    }
+    .backup-checkbox, #selectAllCheckbox {
+        transform: scale(1.2);
+        accent-color: var(--success);
+    }
 
     .search-box {
         width: 100%;
@@ -905,36 +921,50 @@ async function generateBookmarklet() {
  */
 async function displaySavedBookmarklets() {
     try {
-        let data = await getSavedData();
+        const allData = await getSavedData();
         const container = document.getElementById('savedBookmarklets');
         const searchVal = (document.getElementById('bookmarkSearch').value || "").toLowerCase();
-        
-        if (searchVal) {
-            data = data.filter(item => 
-                item.nama.toLowerCase().includes(searchVal) ||
-                item.penggunaan.toLowerCase().includes(searchVal)
-            );
-        }
+
+        const data = allData
+            .map((item, originalIndex) => ({ item, originalIndex }))
+            .filter(({ item }) => {
+                if (!searchVal) return true;
+                return (
+                    item.nama.toLowerCase().includes(searchVal) ||
+                    item.penggunaan.toLowerCase().includes(searchVal)
+                );
+            });
 
         container.innerHTML = '';
-        
+
         if (data.length === 0) {
             container.innerHTML = '<p style="text-align:center; font-style:italic;">Belum ada bookmarklet tersimpan.</p>';
             return;
         }
 
-        data.forEach((item, index) => {
+        const controlsDiv = document.createElement('div');
+        controlsDiv.className = 'backup-controls';
+        controlsDiv.innerHTML = `
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                <input type="checkbox" id="selectAllCheckbox" onchange="toggleAllCheckboxes()">
+                <span>Pilih Semua (${data.length})</span>
+            </label>
+        `;
+        container.appendChild(controlsDiv);
+
+        data.forEach(({ item, originalIndex }) => {
             const div = document.createElement('div');
             div.className = 'item-card';
             div.innerHTML = `
+                <input type="checkbox" class="backup-checkbox export-checkbox" data-index="${originalIndex}" onchange="checkSelectAllState()">
                 <div class="item-info">
                     <strong>${item.nama}</strong>
                     <span>${item.penggunaan} • ${item.digits}digit • ${item.period}s • ${item.algorithm}</span>
                 </div>
                 <div class="item-actions">
-                    <button class="btn-primary" onclick="loadSaved(${index})">Load</button>
-                    <button class="btn-secondary" onclick="editSaved(${index})">Edit</button>
-                    <button class="btn-danger" onclick="deleteSaved(${index})">Del</button>
+                    <button class="btn-primary" onclick="loadSaved(${originalIndex})">Load</button>
+                    <button class="btn-secondary" onclick="editSaved(${originalIndex})">Edit</button>
+                    <button class="btn-danger" onclick="deleteSaved(${originalIndex})">Del</button>
                 </div>
             `;
             container.appendChild(div);
@@ -942,6 +972,26 @@ async function displaySavedBookmarklets() {
     } catch(e) {
         showAlert("Error load: " + e.message, "error");
     }
+}
+
+function checkSelectAllState() {
+    const selectAll = document.getElementById('selectAllCheckbox');
+    if (!selectAll) return;
+    const itemCheckboxes = document.querySelectorAll('.export-checkbox');
+    if (itemCheckboxes.length === 0) {
+        selectAll.checked = false;
+        return;
+    }
+    const allChecked = Array.from(itemCheckboxes).every(cb => cb.checked);
+    selectAll.checked = allChecked;
+}
+
+function toggleAllCheckboxes() {
+    const selectAll = document.getElementById('selectAllCheckbox');
+    if (!selectAll) return;
+    const isChecked = selectAll.checked;
+    const itemCheckboxes = document.querySelectorAll('.export-checkbox');
+    itemCheckboxes.forEach(cb => (cb.checked = isChecked));
 }
 
 async function loadSaved(index) {
@@ -1280,8 +1330,24 @@ async function exportToBookmarksHTML() {
         const data = await getSavedData();
         if(data.length === 0) return showAlert("Tidak ada data untuk diekspor", "error");
 
+        const selectedIndexes = Array.from(document.querySelectorAll('.export-checkbox:checked'))
+            .map(cb => parseInt(cb.dataset.index, 10))
+            .filter(n => Number.isFinite(n));
+
+        if (selectedIndexes.length === 0) {
+            return showAlert("Centang dulu bookmarklet yang ingin diekspor", "error");
+        }
+
+        const selectedData = selectedIndexes
+            .map(i => data[i])
+            .filter(Boolean);
+
+        if (selectedData.length === 0) {
+            return showAlert("Pilihan export tidak valid. Coba refresh daftar.", "error");
+        }
+
         let links = "";
-        for (const item of data) {
+        for (const item of selectedData) {
             const jsCode = `var secretKey="${item.secret}";var digits=${item.digits || 6};var period=${item.period || 30};var algo="${item.algorithm || "SHA-1"}";function base32Decode(e){for(var t=e.toUpperCase().replace(/=+$/,"").replace(/\\s+/g,""),r=0,n=0,a=[],o=0;o<t.length;o++){var c="ABCDEFGHIJKLMNOPQRSTUVWXYZ234567".indexOf(t[o]);if(-1===c)throw new Error("Invalid Base32");n=n<<5|c,(r+=5)>=8&&(a.push(n>>>r-8&255),r-=8)}return new Uint8Array(a)}function intToBuffer(e){var t=new ArrayBuffer(8),r=new DataView(t);r.setUint32(0,Math.floor(e/Math.pow(2,32)));r.setUint32(4,e>>>0);return new Uint8Array(t)}function generateTOTP(e,t,r,n){var a=base32Decode(e),o=Math.floor(Date.now()/1e3),c=intToBuffer(Math.floor(o/r));return crypto.subtle.importKey("raw",a,{name:"HMAC",hash:{name:n}},!1,["sign"]).then(function(e){return crypto.subtle.sign("HMAC",e,c)}).then(function(e){var r=new Uint8Array(e),n=15&r[r.length-1];return(((127&r[n])<<24|(255&r[n+1])<<16|(255&r[n+2])<<8|255&r[n+3])%Math.pow(10,t)).toString().padStart(t,"0")})}generateTOTP(secretKey,digits,period,algo).then(function(e){var t="${item.penggunaan}";document.getElementById(t)?document.getElementById(t).value=e:"infogtk"==t&&document.querySelectorAll("#otpForm .otp-input").forEach((r,n)=>{r.value=e[n]||""})}).catch(function(e){alert("Error: "+e.message)})`;
             const href = "javascript:(function(){" + encodeURIComponent(jsCode) + "})();";
             links += `<DT><A HREF="${href}">${item.nama}</A>\n`;
