@@ -202,46 +202,6 @@
             background: #059669;
         }
 
-        .lock-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            z-index: 999;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            backdrop-filter: blur(5px);
-        }
-
-        .lock-overlay.active {
-            display: flex;
-        }
-
-        .lock-box {
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-            border-radius: 12px;
-            padding: 40px;
-            text-align: center;
-            max-width: 400px;
-        }
-
-        .lock-box h2 {
-            color: #60a5fa;
-            margin-bottom: 20px;
-        }
-
-        .lock-box input {
-            margin-bottom: 15px;
-        }
-
-        .lock-box button {
-            width: 100%;
-        }
-
         .radio-group {
             display: flex;
             flex-wrap: wrap;
@@ -503,18 +463,6 @@
     <!-- Canvas Background -->
     <canvas id="bgCanvas"></canvas>
 
-    <!-- App Lock Overlay -->
-    <div class="lock-overlay" id="lockOverlay">
-        <div class="lock-box">
-            <h2>🔐 APLIKASI TERKUNCI</h2>
-            <p style="margin-bottom: 20px;">Masukkan Master Password untuk membuka.</p>
-            <input type="password" id="lockPassword" placeholder="Master Password" autocomplete="off">
-            <button onclick="tryUnlock()">Buka Aplikasi</button>
-            <p style="margin-top: 15px; font-size: 11px; color: #888;">Catatan: Aplikasi akan terkunci otomatis saat tab
-                ditutup.</p>
-        </div>
-    </div>
-
     <div class="container">
         <div>
             <h1>⭐ OTP BOOKMARKLET PRO</h1>
@@ -652,25 +600,9 @@
         <div id="settings" class="tab-content">
             <h3>Pengaturan & Keamanan</h3>
 
-            <p style="margin-bottom: 10px;">🔐 <strong>Master Password</strong></p>
-            <p style="font-size: 11px; color: #888; margin-bottom: 10px;">Master password digunakan untuk enkripsi data.
-                Jika lupa, data tidak bisa dipulihkan.</p>
-
-            <input type="password" id="newPassword" placeholder="Master Password baru" autocomplete="off">
-            <input type="password" id="confirmPassword" placeholder="Konfirmasi password" autocomplete="off">
-            <button onclick="setMasterPassword()" style="width: 100%; margin-bottom: 10px;">🔐 Set Master
-                Password</button>
-
-            <button class="btn-danger" onclick="lockApp()" style="width: 100%; margin-bottom: 20px;">🔒 Lock Aplikasi
-                Sekarang</button>
-
             <hr>
             <p style="margin-bottom: 10px;"><strong>Preferensi</strong></p>
 
-            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 10px;">
-                <input type="checkbox" id="autoLockToggle" checked>
-                <span>Auto-lock saat tab ditutup</span>
-            </label>
 
             <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 10px;">
                 <input type="checkbox" id="previewToggle" checked>
@@ -781,146 +713,25 @@
 
         /**
          * ===============================
-         * APP LOCK & ENCRYPTION
+         * DATA STORAGE
          * ===============================
          */
-        let masterKey = null;
-        let appLocked = true;
-        let passwordHash = null;
-
-        function b64(bytes) { return btoa(String.fromCharCode(...new Uint8Array(bytes))); }
-        function ub64(s) { return Uint8Array.from(atob(s), c => c.charCodeAt(0)); }
-
-        async function hashPassword(password) {
-            const enc = new TextEncoder();
-            const hashBuffer = await crypto.subtle.digest('SHA-256', enc.encode(password));
-            return b64(hashBuffer);
-        }
-
-        async function deriveKeyFromPassword(password, saltBytes) {
-            const enc = new TextEncoder();
-            const baseKey = await crypto.subtle.importKey(
-                "raw", enc.encode(password), "PBKDF2", false, ["deriveKey"]
-            );
-            return crypto.subtle.deriveKey(
-                { name: "PBKDF2", salt: saltBytes, iterations: 150000, hash: "SHA-256" },
-                baseKey,
-                { name: "AES-GCM", length: 256 },
-                false,
-                ["encrypt", "decrypt"]
-            );
-        }
-
-        async function initLock() {
-            const stored = localStorage.getItem("otp_hash");
-            if (stored) {
-                passwordHash = stored;
-                appLocked = true;
-                document.getElementById("lockOverlay").classList.add("active");
-            } else {
-                appLocked = false;
-                document.getElementById("lockOverlay").classList.remove("active");
-                console.log("Belum ada master password. Silakan atur di Settings.");
-            }
-        }
-
-        async function tryUnlock() {
-            const pwd = document.getElementById("lockPassword").value.trim();
-            if (!pwd) return showAlert("Masukkan password", "error");
-
-            const hash = await hashPassword(pwd);
-            if (hash === passwordHash) {
-                const salt = ub64(localStorage.getItem("otp_salt") || "");
-                masterKey = await deriveKeyFromPassword(pwd, salt);
-                appLocked = false;
-                document.getElementById("lockOverlay").classList.remove("active");
-                document.getElementById("lockPassword").value = "";
-                showAlert("✅ Aplikasi dibuka", "success");
-                displaySavedBookmarklets();
-            } else {
-                showAlert("❌ Password salah", "error");
-            }
-        }
-
-        async function setMasterPassword() {
-            const pwd1 = document.getElementById("newPassword").value.trim();
-            const pwd2 = document.getElementById("confirmPassword").value.trim();
-
-            if (!pwd1 || !pwd2) return showAlert("Isi kedua password", "error");
-            if (pwd1 !== pwd2) return showAlert("Password tidak cocok", "error");
-            if (pwd1.length < 6) return showAlert("Password minimal 6 karakter", "error");
-
-            try {
-                const salt = crypto.getRandomValues(new Uint8Array(16));
-                masterKey = await deriveKeyFromPassword(pwd1, salt);
-                passwordHash = await hashPassword(pwd1);
-
-                localStorage.setItem("otp_salt", b64(salt));
-                localStorage.setItem("otp_hash", passwordHash);
-
-                document.getElementById("newPassword").value = "";
-                document.getElementById("confirmPassword").value = "";
-
-                showAlert("✅ Master password berhasil diset", "success");
-            } catch (e) {
-                showAlert("❌ Error: " + e.message, "error");
-            }
-        }
-
-        function lockApp() {
-            if (!masterKey) return showAlert("Belum ada master password", "error");
-            masterKey = null;
-            appLocked = true;
-            document.getElementById("lockOverlay").classList.add("active");
-            showAlert("🔒 Aplikasi terkunci", "info");
-        }
-
-        window.addEventListener('beforeunload', () => {
-            if (document.getElementById("autoLockToggle").checked) {
-                masterKey = null;
-            }
-        });
-
-        /**
-         * ===============================
-         * DATA ENCRYPTION & STORAGE
-         * ===============================
-         */
-        async function encryptData(obj) {
-            if (!masterKey) throw new Error("Aplikasi terkunci. Buka dengan password.");
-            const iv = crypto.getRandomValues(new Uint8Array(12));
-            const plaintext = new TextEncoder().encode(JSON.stringify(obj));
-            const ciphertext = new Uint8Array(await crypto.subtle.encrypt(
-                { name: "AES-GCM", iv }, masterKey, plaintext
-            ));
-            return JSON.stringify({ iv: b64(iv), ct: b64(ciphertext) });
-        }
-
-        async function decryptData(encrypted) {
-            if (!masterKey) return null;
-            try {
-                const { iv, ct } = JSON.parse(encrypted);
-                const plaintext = await crypto.subtle.decrypt(
-                    { name: "AES-GCM", iv: ub64(iv) }, masterKey, ub64(ct)
-                );
-                return JSON.parse(new TextDecoder().decode(new Uint8Array(plaintext)));
-            } catch (e) {
-                return null;
-            }
-        }
-
         async function getSavedData() {
-            if (appLocked) return [];
-            const encrypted = localStorage.getItem("otpBookmarklets_enc");
-            if (!encrypted) return [];
-            return (await decryptData(encrypted)) || [];
+            const data = localStorage.getItem("otpBookmarklets");
+            if (!data) return [];
+            try {
+                return JSON.parse(data);
+            } catch (e) {
+                // Migrasi dari data terenkripsi jika ada (opsional, tapi lebih baik mulai baru jika user minta hapus fitur)
+                return [];
+            }
         }
 
         async function saveData(data) {
-            if (appLocked) throw new Error("Aplikasi terkunci");
-            const encrypted = await encryptData(data);
-            localStorage.setItem("otpBookmarklets_enc", encrypted);
+            localStorage.setItem("otpBookmarklets", JSON.stringify(data));
         }
+
+
 
         /**
          * ===============================
@@ -1580,24 +1391,19 @@ ${links}
             if (!confirm("⚠️ Ini akan menghapus SEMUA data permanen. Lanjutkan?")) return;
             if (!confirm("Yakin? Aksi ini tidak bisa dibatalkan.")) return;
 
+            localStorage.removeItem("otpBookmarklets");
             localStorage.removeItem("otpBookmarklets_enc");
             localStorage.removeItem("qrHistory");
             localStorage.removeItem("otp_salt");
             localStorage.removeItem("otp_hash");
 
-            masterKey = null;
-            passwordHash = null;
-            appLocked = true;
-
             showAlert("⚠️ Semua data dihapus. Refresh halaman...", "info");
             setTimeout(() => location.reload(), 2000);
         }
 
-        // Initialize
         document.addEventListener('DOMContentLoaded', async () => {
             initDragAndDrop();
             initParticles();
-            await initLock();
             await displaySavedBookmarklets();
             displayQRHistory();
             setInterval(refreshPreviewOTP, 1000);
