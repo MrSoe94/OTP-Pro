@@ -131,6 +131,7 @@
 
         input[type="text"],
         input[type="password"],
+        input[type="number"],
         textarea,
         input[type="file"],
         select {
@@ -148,6 +149,7 @@
 
         input[type="text"]:focus,
         input[type="password"]:focus,
+        input[type="number"]:focus,
         select:focus {
             border-color: var(--primary);
             box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
@@ -223,6 +225,37 @@
 
         .radio-group input[type="radio"] {
             accent-color: var(--primary);
+        }
+
+        .camera-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        #qrReaderWrapper {
+            display: none;
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 14px;
+        }
+
+        #qrReader {
+            width: 100%;
+            max-width: 420px;
+            margin: 0 auto;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        #qrReader video {
+            width: 100% !important;
+            height: auto !important;
+            border-radius: 8px;
+            object-fit: cover;
         }
 
         .drop-zone {
@@ -475,10 +508,10 @@
 
         <!-- Tab Navigation -->
         <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('generator')">⚡ Generator</button>
-            <button class="tab-btn" onclick="switchTab('decoder')">📷 Decoder</button>
-            <button class="tab-btn" onclick="switchTab('manage')">📋 Manage</button>
-            <button class="tab-btn" onclick="switchTab('settings')">⚙️ Settings</button>
+            <button class="tab-btn active" onclick="switchTab('generator', this)">⚡ Generator</button>
+            <button class="tab-btn" onclick="switchTab('decoder', this)">📷 Decoder</button>
+            <button class="tab-btn" onclick="switchTab('manage', this)">📋 Manage</button>
+            <button class="tab-btn" onclick="switchTab('settings', this)">⚙️ Settings</button>
         </div>
 
         <!-- TAB 1: GENERATOR -->
@@ -549,12 +582,26 @@
 
         <!-- TAB 2: DECODER -->
         <div id="decoder" class="tab-content">
-            <h3>QR Code Decoder</h3>
-            <p>Upload screenshot QR Code dari Google Authenticator atau sistem lain.</p>
+            <h3>QR Code Scanner & Decoder</h3>
+            <p>Arahkan kamera langsung ke QR Code atau upload gambar screenshot QR Code.</p>
+
+            <!-- Kontrol Kamera Lintas Perangkat -->
+            <div class="camera-controls">
+                <button id="btnStartCamera" class="btn-success" onclick="startCameraScanner()">📸 Buka Kamera</button>
+                <button id="btnSwitchCamera" class="btn-secondary" onclick="switchCameraFacing()" style="display: none;">🔄 Ganti Kamera</button>
+                <button id="btnStopCamera" class="btn-danger" onclick="stopCameraScanner()" style="display: none;">⏹️ Tutup Kamera</button>
+            </div>
+
+            <div id="qrReaderWrapper">
+                <div id="qrReader"></div>
+                <p style="text-align: center; font-size: 11px; margin-top: 8px; color: #94a3b8;">
+                    Pastikan akses HTTPS aktif dan izinkan akses kamera pada browser.
+                </p>
+            </div>
 
             <div class="drop-zone" id="dropZone">
-                <span style="font-size: 32px; display: block; margin-bottom: 8px;">📷</span>
-                <span>Seret gambar QR atau Klik untuk memilih</span>
+                <span style="font-size: 32px; display: block; margin-bottom: 8px;">🖼️</span>
+                <span>Seret gambar QR atau Klik untuk memilih file</span>
                 <input type="file" id="fileInput" accept="image/*" style="display: none;">
             </div>
 
@@ -603,7 +650,6 @@
             <hr>
             <p style="margin-bottom: 10px;"><strong>Preferensi</strong></p>
 
-
             <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 10px;">
                 <input type="checkbox" id="previewToggle" checked>
                 <span>Preview OTP otomatis saat input secret</span>
@@ -622,13 +668,14 @@
         </div>
 
         <div style="text-align: center; margin-top: 20px; font-size: 11px; color: #555;">
-            <p>🔒 Semua data dienkripsi lokal. Tidak ada yang dikirim ke server.</p>
+            <p>🔒 Semua data diproses lokal di browser. Tidak ada yang dikirim ke server.</p>
         </div>
     </div>
 
     <!-- Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/protobufjs/dist/protobuf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 
     <script>
         /**
@@ -713,6 +760,105 @@
 
         /**
          * ===============================
+         * CAMERA QR SCANNER (All Devices)
+         * ===============================
+         */
+        let html5QrCodeInstance = null;
+        let isCameraRunning = false;
+        let currentFacingMode = "environment"; // "environment" (belakang) atau "user" (depan)
+
+        function enforceIosVideoAttributes() {
+            const videoEl = document.querySelector('#qrReader video');
+            if (videoEl) {
+                videoEl.setAttribute('playsinline', 'true');
+                videoEl.setAttribute('webkit-playsinline', 'true');
+                videoEl.muted = true;
+            }
+        }
+
+        async function startCameraScanner(facingMode = currentFacingMode) {
+            if (!window.isSecureContext && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+                return showAlert("⚠️ Akses kamera membutuhkan HTTPS atau localhost.", "error");
+            }
+
+            if (typeof Html5Qrcode === 'undefined') {
+                return showAlert("❌ Library pemindai kamera belum termuat. Periksa koneksi internet.", "error");
+            }
+
+            try {
+                if (isCameraRunning) {
+                    await stopCameraScanner();
+                }
+
+                currentFacingMode = facingMode;
+                document.getElementById('qrReaderWrapper').style.display = 'block';
+                document.getElementById('btnStartCamera').style.display = 'none';
+                document.getElementById('btnSwitchCamera').style.display = 'inline-flex';
+                document.getElementById('btnStopCamera').style.display = 'inline-flex';
+
+                if (!html5QrCodeInstance) {
+                    html5QrCodeInstance = new Html5Qrcode("qrReader", { verbose: false });
+                }
+
+                const config = {
+                    fps: 10,
+                    qrbox: (viewfinderWidth, viewfinderHeight) => {
+                        const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+                        const boxSize = Math.max(180, Math.min(280, Math.floor(minEdge * 0.72)));
+                        return { width: boxSize, height: boxSize };
+                    },
+                    rememberLastUsedCamera: false
+                };
+
+                await html5QrCodeInstance.start(
+                    { facingMode: currentFacingMode },
+                    config,
+                    async (decodedText) => {
+                        await stopCameraScanner();
+                        processQR(decodedText);
+                        showAlert("✅ QR Code berhasil dipindai dari kamera!", "success");
+                    },
+                    () => {
+                        // Abaikan frame yang belum memuat QR
+                    }
+                );
+
+                isCameraRunning = true;
+                setTimeout(enforceIosVideoAttributes, 200);
+            } catch (err) {
+                console.error("Camera Error:", err);
+                await stopCameraScanner();
+                showAlert(
+                    `❌ Gagal membuka kamera (${currentFacingMode === "environment" ? "belakang" : "depan"}). Pastikan izin kamera diizinkan di browser.`,
+                    "error"
+                );
+            }
+        }
+
+        async function switchCameraFacing() {
+            const nextMode = currentFacingMode === "environment" ? "user" : "environment";
+            await startCameraScanner(nextMode);
+        }
+
+        async function stopCameraScanner() {
+            try {
+                if (html5QrCodeInstance && isCameraRunning) {
+                    await html5QrCodeInstance.stop();
+                    await html5QrCodeInstance.clear();
+                }
+            } catch (err) {
+                console.warn("Stop camera warning:", err);
+            } finally {
+                isCameraRunning = false;
+                document.getElementById('qrReaderWrapper').style.display = 'none';
+                document.getElementById('btnStartCamera').style.display = 'inline-flex';
+                document.getElementById('btnSwitchCamera').style.display = 'none';
+                document.getElementById('btnStopCamera').style.display = 'none';
+            }
+        }
+
+        /**
+         * ===============================
          * DATA STORAGE
          * ===============================
          */
@@ -722,7 +868,6 @@
             try {
                 return JSON.parse(data);
             } catch (e) {
-                // Migrasi dari data terenkripsi jika ada (opsional, tapi lebih baik mulai baru jika user minta hapus fitur)
                 return [];
             }
         }
@@ -730,8 +875,6 @@
         async function saveData(data) {
             localStorage.setItem("otpBookmarklets", JSON.stringify(data));
         }
-
-
 
         /**
          * ===============================
@@ -747,11 +890,22 @@
             setTimeout(() => div.remove(), 4000);
         }
 
-        function switchTab(tab) {
+        async function switchTab(tab, btnElement = null) {
+            if (tab !== 'decoder' && isCameraRunning) {
+                await stopCameraScanner();
+            }
+
             document.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
             document.querySelectorAll(".tab-btn").forEach(el => el.classList.remove("active"));
             document.getElementById(tab).classList.add("active");
-            event.target.classList.add("active");
+
+            if (btnElement) {
+                btnElement.classList.add("active");
+            } else {
+                const matchingBtn = Array.from(document.querySelectorAll(".tab-btn"))
+                    .find(b => b.getAttribute("onclick")?.includes(`'${tab}'`));
+                if (matchingBtn) matchingBtn.classList.add("active");
+            }
         }
 
         const radioButtons = document.querySelectorAll('input[name="bmOption"]');
@@ -781,7 +935,12 @@
         async function generateTOTP(secret, digits = 6, period = 30, algorithm = "SHA-1") {
             try {
                 function base32Decode(e) {
-                    for (var t = e.toUpperCase().replace(/=+$/, "").replace(/\s+/g, ""), r = 0, n = 0, a = [], o = 0; o < t.length; o++) { var c = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567".indexOf(t[o]); if (-1 === c) throw new Error("Invalid Base32: " + t[o]); n = n << 5 | c, (r += 5) >= 8 && (a.push(n >>> r - 8 & 255), r -= 8) } return new Uint8Array(a)
+                    for (var t = e.toUpperCase().replace(/=+$/, "").replace(/\s+/g, ""), r = 0, n = 0, a = [], o = 0; o < t.length; o++) {
+                        var c = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567".indexOf(t[o]);
+                        if (-1 === c) throw new Error("Invalid Base32: " + t[o]);
+                        n = n << 5 | c, (r += 5) >= 8 && (a.push(n >>> r - 8 & 255), r -= 8);
+                    }
+                    return new Uint8Array(a);
                 }
 
                 const key = base32Decode(secret);
@@ -850,7 +1009,6 @@
             previewToggle.addEventListener("change", refreshPreviewOTP);
         }
 
-        // Event listeners untuk search inputs
         const historySearch = document.getElementById('historySearch');
         if (historySearch) {
             historySearch.addEventListener('input', displayQRHistory);
@@ -860,8 +1018,6 @@
         if (bookmarkSearch) {
             bookmarkSearch.addEventListener('input', displaySavedBookmarklets);
         }
-
-        setInterval(refreshPreviewOTP, 1000);
 
         /**
          * ===============================
@@ -914,8 +1070,7 @@
                 link.textContent = namacode;
                 resultArea.style.display = "block";
 
-                // Update title bar dengan nama bookmarklet & email
-                document.title = `⭐ ${namacode} | hangtuah2titipapan@gmail.com`;
+                document.title = `⭐ ${namacode} | OTP Bookmarklet Pro`;
 
                 resultArea.scrollIntoView({ behavior: "smooth" });
             } catch (e) {
@@ -954,28 +1109,28 @@
                 const controlsDiv = document.createElement('div');
                 controlsDiv.className = 'backup-controls';
                 controlsDiv.innerHTML = `
-            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-                <input type="checkbox" id="selectAllCheckbox" onchange="toggleAllCheckboxes()">
-                <span>Pilih Semua (${data.length})</span>
-            </label>
-        `;
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                        <input type="checkbox" id="selectAllCheckbox" onchange="toggleAllCheckboxes()">
+                        <span>Pilih Semua (${data.length})</span>
+                    </label>
+                `;
                 container.appendChild(controlsDiv);
 
                 data.forEach(({ item, originalIndex }) => {
                     const div = document.createElement('div');
                     div.className = 'item-card';
                     div.innerHTML = `
-                <input type="checkbox" class="backup-checkbox export-checkbox" data-index="${originalIndex}" onchange="checkSelectAllState()">
-                <div class="item-info">
-                    <strong>${item.nama}</strong>
-                    <span>${item.penggunaan} • ${item.digits}digit • ${item.period}s • ${item.algorithm}</span>
-                </div>
-                <div class="item-actions">
-                    <button class="btn-primary" onclick="loadSaved(${originalIndex})">Load</button>
-                    <button class="btn-secondary" onclick="editSaved(${originalIndex})">Edit</button>
-                    <button class="btn-danger" onclick="deleteSaved(${originalIndex})">Del</button>
-                </div>
-            `;
+                        <input type="checkbox" class="backup-checkbox export-checkbox" data-index="${originalIndex}" onchange="checkSelectAllState()">
+                        <div class="item-info">
+                            <strong>${item.nama}</strong>
+                            <span>${item.penggunaan} • ${item.digits}digit • ${item.period}s • ${item.algorithm}</span>
+                        </div>
+                        <div class="item-actions">
+                            <button class="btn-primary" onclick="loadSaved(${originalIndex})">Load</button>
+                            <button class="btn-secondary" onclick="editSaved(${originalIndex})">Edit</button>
+                            <button class="btn-danger" onclick="deleteSaved(${originalIndex})">Del</button>
+                        </div>
+                    `;
                     container.appendChild(div);
                 });
             } catch (e) {
@@ -1008,14 +1163,20 @@
             const item = data[index];
             document.getElementById("bookmarkletCode").value = item.secret;
             document.getElementById("bookmarkletNama").value = item.nama;
-            document.querySelector(`input[name="bmOption"][value="${item.penggunaan}"]`).checked = true;
+            const presetRadio = document.querySelector(`input[name="bmOption"][value="${item.penggunaan}"]`);
+            if (presetRadio) {
+                presetRadio.checked = true;
+                document.getElementById("customFieldId").style.display = "none";
+            } else {
+                document.querySelector('input[name="bmOption"][value="custom"]').checked = true;
+                document.getElementById("customFieldId").style.display = "block";
+                document.getElementById("customFieldId").value = item.penggunaan;
+            }
             document.getElementById("totpDigits").value = item.digits || 6;
             document.getElementById("totpPeriod").value = item.period || 30;
             document.getElementById("totpAlgo").value = item.algorithm || "SHA-1";
-            document.getElementById("customFieldId").style.display = item.penggunaan === "custom" ? "block" : "none";
-            if (item.penggunaan === "custom") document.getElementById("customFieldId").value = item.penggunaan;
             refreshPreviewOTP();
-            switchTab("generator");
+            await switchTab("generator");
             showAlert("✅ Bookmarklet dimuat", "success");
         }
 
@@ -1034,7 +1195,7 @@
 
         /**
          * ===============================
-         * QR DECODER
+         * QR DECODER (File Upload)
          * ===============================
          */
         function initDragAndDrop() {
@@ -1068,7 +1229,8 @@
                 const img = new Image();
                 img.onload = () => {
                     const cvs = document.createElement('canvas');
-                    cvs.width = img.width; cvs.height = img.height;
+                    cvs.width = img.width;
+                    cvs.height = img.height;
                     const ctx2 = cvs.getContext('2d');
                     ctx2.drawImage(img, 0, 0);
                     const imageData = ctx2.getImageData(0, 0, cvs.width, cvs.height);
@@ -1106,6 +1268,7 @@
                         showOutput(`✅ BERHASIL\n\nNama: ${res.name}\nIssuer: ${res.issuer}\nSecret: ${res.secret}`);
                         document.getElementById("bookmarkletCode").value = res.secret;
                         document.getElementById("bookmarkletNama").value = res.name;
+                        refreshPreviewOTP();
                         addToHistory(res);
                     } else {
                         throw new Error("No secret");
@@ -1120,14 +1283,24 @@
                     const bytes = new Uint8Array(binary.length);
                     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
 
-                    const root = protobuf.Root.fromJSON({ nested: { MigrationPayload: { fields: { otpParameters: { rule: "repeated", type: "OtpParameters", id: 1 } } }, OtpParameters: { fields: { secret: { type: "bytes", id: 1 }, name: { type: "string", id: 2 }, issuer: { type: "string", id: 3 } } } } });
+                    const root = protobuf.Root.fromJSON({
+                        nested: {
+                            MigrationPayload: { fields: { otpParameters: { rule: "repeated", type: "OtpParameters", id: 1 } } },
+                            OtpParameters: { fields: { secret: { type: "bytes", id: 1 }, name: { type: "string", id: 2 }, issuer: { type: "string", id: 3 } } }
+                        }
+                    });
                     const payload = root.lookupType("MigrationPayload").decode(bytes);
 
                     let txt = "";
-                    payload.otpParameters.forEach(p => {
+                    payload.otpParameters.forEach((p, idx) => {
                         const base32 = base32Encode(p.secret);
                         const item = { name: p.name, secret: base32, issuer: p.issuer };
                         txt += `✅ ${item.name} (${item.issuer})\nSecret: ${item.secret}\n\n`;
+                        if (idx === 0) {
+                            document.getElementById("bookmarkletCode").value = item.secret;
+                            document.getElementById("bookmarkletNama").value = item.name;
+                            refreshPreviewOTP();
+                        }
                         addToHistory(item);
                     });
                     showOutput(txt);
@@ -1194,20 +1367,21 @@
                 el.className = 'item-card';
                 const date = new Date(h.timestamp).toLocaleString('id-ID');
                 el.innerHTML = `
-            <div class="item-info">
-                <strong>${h.name}</strong>
-                <span>${h.issuer} • ${date}</span>
-            </div>
-            <button class="btn-primary" onclick="useHistory('${h.secret}', '${h.name}')">Pakai</button>
-        `;
+                    <div class="item-info">
+                        <strong>${h.name}</strong>
+                        <span>${h.issuer} • ${date}</span>
+                    </div>
+                    <button class="btn-primary" onclick="useHistory('${h.secret}', '${h.name.replace(/'/g, "\\'")}')">Pakai</button>
+                `;
                 div.appendChild(el);
             });
         }
 
-        function useHistory(sec, name) {
+        async function useHistory(sec, name) {
             document.getElementById("bookmarkletCode").value = sec;
             document.getElementById("bookmarkletNama").value = name;
-            switchTab("generator");
+            refreshPreviewOTP();
+            await switchTab("generator");
         }
 
         function clearHistory() {
@@ -1400,6 +1574,12 @@ ${links}
             showAlert("⚠️ Semua data dihapus. Refresh halaman...", "info");
             setTimeout(() => location.reload(), 2000);
         }
+
+        window.addEventListener("beforeunload", () => {
+            if (isCameraRunning) {
+                stopCameraScanner();
+            }
+        });
 
         document.addEventListener('DOMContentLoaded', async () => {
             initDragAndDrop();
